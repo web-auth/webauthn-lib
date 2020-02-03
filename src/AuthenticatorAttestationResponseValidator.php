@@ -73,8 +73,10 @@ class AuthenticatorAttestationResponseValidator
         Assertion::isArray($parsedRelyingPartyId, sprintf('The origin URI "%s" is not valid', $C->getOrigin()));
         Assertion::keyExists($parsedRelyingPartyId, 'scheme', 'Invalid origin rpId.');
         $scheme = $parsedRelyingPartyId['scheme'] ?? '';
-        Assertion::eq('https', $scheme, 'Invalid scheme. HTTPS required.');
         $clientDataRpId = $parsedRelyingPartyId['host'] ?? '';
+        if ($clientDataRpId !== "localhost"){
+            Assertion::eq('https', $scheme, 'Invalid scheme. HTTPS required.');
+        }
         Assertion::notEmpty($clientDataRpId, 'Invalid origin rpId.');
         $rpIdLength = mb_strlen($rpId);
         Assertion::eq(mb_substr($clientDataRpId, -$rpIdLength), $rpId, 'rpId mismatch.');

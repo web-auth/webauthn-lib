@@ -122,8 +122,10 @@ class AuthenticatorAssertionResponseValidator
         $parsedRelyingPartyId = parse_url($C->getOrigin());
         Assertion::isArray($parsedRelyingPartyId, 'Invalid origin');
         $scheme = $parsedRelyingPartyId['scheme'] ?? '';
-        Assertion::eq('https', $scheme, 'Invalid scheme. HTTPS required.');
         $clientDataRpId = $parsedRelyingPartyId['host'] ?? '';
+        if ($clientDataRpId !== "localhost"){
+            Assertion::eq('https', $scheme, 'Invalid scheme. HTTPS required.');
+        }
         Assertion::notEmpty($clientDataRpId, 'Invalid origin rpId.');
         Assertion::eq(mb_substr($clientDataRpId, -$rpIdLength), $rpId, 'rpId mismatch.');
 
