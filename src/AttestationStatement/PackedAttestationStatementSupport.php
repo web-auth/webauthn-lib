@@ -26,7 +26,6 @@ use InvalidArgumentException;
 use RuntimeException;
 use Webauthn\AuthenticatorData;
 use Webauthn\CertificateToolbox;
-use Webauthn\MetadataService\MetadataStatementRepository;
 use Webauthn\StringStream;
 use Webauthn\TrustPath\CertificateTrustPath;
 use Webauthn\TrustPath\EcdaaKeyIdTrustPath;
@@ -45,22 +44,10 @@ final class PackedAttestationStatementSupport implements AttestationStatementSup
      */
     private $algorithmManager;
 
-    /**
-     * @var MetadataStatementRepository|null
-     */
-    private $metadataStatementRepository;
-
-    public function __construct(?Decoder $decoder, Manager $algorithmManager, ?MetadataStatementRepository $metadataStatementRepository = null)
+    public function __construct(Manager $algorithmManager)
     {
-        if (null !== $decoder) {
-            @trigger_error('The argument "$decoder" is deprecated since 2.1 and will be removed in v3.0. Set null instead', E_USER_DEPRECATED);
-        }
-        if (null === $metadataStatementRepository) {
-            @trigger_error('Setting "null" for argument "$metadataStatementRepository" is deprecated since 2.1 and will be mandatory in v3.0.', E_USER_DEPRECATED);
-        }
-        $this->decoder = $decoder ?? new Decoder(new TagObjectManager(), new OtherObjectManager());
+        $this->decoder = new Decoder(new TagObjectManager(), new OtherObjectManager());
         $this->algorithmManager = $algorithmManager;
-        $this->metadataStatementRepository = $metadataStatementRepository;
     }
 
     public function name(): string
@@ -68,6 +55,9 @@ final class PackedAttestationStatementSupport implements AttestationStatementSup
         return 'packed';
     }
 
+    /**
+     * @param array<string, mixed> $attestation
+     */
     public function load(array $attestation): AttestationStatement
     {
         Assertion::keyExists($attestation['attStmt'], 'sig', 'The attestation statement value "sig" is missing.');
@@ -98,6 +88,9 @@ final class PackedAttestationStatementSupport implements AttestationStatementSup
         }
     }
 
+    /**
+     * @param array<string, mixed> $attestation
+     */
     private function loadBasicType(array $attestation): AttestationStatement
     {
         $certificates = $attestation['attStmt']['x5c'];
@@ -108,6 +101,9 @@ final class PackedAttestationStatementSupport implements AttestationStatementSup
         return AttestationStatement::createBasic($attestation['fmt'], $attestation['attStmt'], new CertificateTrustPath($certificates));
     }
 
+    /**
+     * @param array<string, mixed> $attestation
+     */
     private function loadEcdaaType(array $attestation): AttestationStatement
     {
         $ecdaaKeyId = $attestation['attStmt']['ecdaaKeyId'];
@@ -116,6 +112,9 @@ final class PackedAttestationStatementSupport implements AttestationStatementSup
         return AttestationStatement::createEcdaa($attestation['fmt'], $attestation['attStmt'], new EcdaaKeyIdTrustPath($attestation['ecdaaKeyId']));
     }
 
+    /**
+     * @param array<string, mixed> $attestation
+     */
     private function loadEmptyType(array $attestation): AttestationStatement
     {
         return AttestationStatement::createSelf($attestation['fmt'], $attestation['attStmt'], new EmptyTrustPath());
@@ -148,15 +147,6 @@ final class PackedAttestationStatementSupport implements AttestationStatementSup
     private function processWithCertificate(string $clientDataJSONHash, AttestationStatement $attestationStatement, AuthenticatorData $authenticatorData, CertificateTrustPath $trustPath): bool
     {
         $certificates = $trustPath->getCertificates();
-
-        if (null !== $this->metadataStatementRepository) {
-            $certificates = CertificateToolbox::checkAttestationMedata(
-                $attestationStatement,
-                $authenticatorData->getAttestedCredentialData()->getAaguid()->toString(),
-                $certificates,
-                $this->metadataStatementRepository
-            );
-        }
 
         // Check leaf certificate
         $this->checkCertificate($certificates[0], $authenticatorData);

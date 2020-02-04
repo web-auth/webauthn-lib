@@ -73,6 +73,9 @@ class PublicKeyCredentialSource implements JsonSerializable
      */
     protected $counter;
 
+    /**
+     * @param array<string> $transports
+     */
     public function __construct(string $publicKeyCredentialId, string $type, array $transports, string $attestationType, TrustPath $trustPath, UuidInterface $aaguid, string $credentialPublicKey, string $userHandle, int $counter)
     {
         $this->publicKeyCredentialId = $publicKeyCredentialId;
@@ -84,29 +87,6 @@ class PublicKeyCredentialSource implements JsonSerializable
         $this->counter = $counter;
         $this->attestationType = $attestationType;
         $this->trustPath = $trustPath;
-    }
-
-    public static function createFromPublicKeyCredential(PublicKeyCredential $publicKeyCredential, string $userHandle): self
-    {
-        $response = $publicKeyCredential->getResponse();
-        Assertion::isInstanceOf($response, AuthenticatorAttestationResponse::class, 'This method is only available with public key credential containing an authenticator attestation response.');
-        $publicKeyCredentialDescriptor = $publicKeyCredential->getPublicKeyCredentialDescriptor();
-        $attestationStatement = $response->getAttestationObject()->getAttStmt();
-        $authenticatorData = $response->getAttestationObject()->getAuthData();
-        $attestedCredentialData = $authenticatorData->getAttestedCredentialData();
-        Assertion::notNull($attestedCredentialData, 'No attested credential data available');
-
-        return new self(
-            $publicKeyCredentialDescriptor->getId(),
-            $publicKeyCredentialDescriptor->getType(),
-            $publicKeyCredentialDescriptor->getTransports(),
-            $attestationStatement->getType(),
-            $attestationStatement->getTrustPath(),
-            $attestedCredentialData->getAaguid(),
-            $attestedCredentialData->getCredentialPublicKey(),
-            $userHandle,
-            $authenticatorData->getSignCount()
-        );
     }
 
     public function getPublicKeyCredentialId(): string
@@ -180,6 +160,9 @@ class PublicKeyCredentialSource implements JsonSerializable
         $this->counter = $counter;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function createFromArray(array $data): self
     {
         $keys = array_keys(get_class_vars(self::class));
@@ -213,6 +196,9 @@ class PublicKeyCredentialSource implements JsonSerializable
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function jsonSerialize(): array
     {
         return [

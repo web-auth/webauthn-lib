@@ -25,9 +25,9 @@ use Jose\Component\Signature\Serializer\CompactSerializer;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 use Webauthn\AuthenticatorData;
 use Webauthn\CertificateToolbox;
-use Webauthn\MetadataService\MetadataStatementRepository;
 use Webauthn\TrustPath\CertificateTrustPath;
 
 final class AndroidSafetyNetAttestationStatementSupport implements AttestationStatementSupport
@@ -67,13 +67,14 @@ final class AndroidSafetyNetAttestationStatementSupport implements AttestationSt
      */
     private $maxAge;
 
-    /**
-     * @var MetadataStatementRepository|null
-     */
-    private $metadataStatementRepository;
-
-    public function __construct(?ClientInterface $client = null, ?string $apiKey = null, ?RequestFactoryInterface $requestFactory = null, int $leeway = 0, int $maxAge = 60000, ?MetadataStatementRepository $metadataStatementRepository = null)
+    public function __construct(?ClientInterface $client = null, ?string $apiKey = null, ?RequestFactoryInterface $requestFactory = null, int $leeway = 0, int $maxAge = 60000)
     {
+        if (!class_exists(Algorithm\RS256::class)) {
+            throw new RuntimeException('The algorithm RS256 is missing. Did you forget to install the package web-token/jwt-signature-algorithm-rsa?');
+        }
+        if (!class_exists(JWKFactory::class)) {
+            throw new RuntimeException('The class Jose\Component\KeyManagement\JWKFactory is missing. Did you forget to install the package web-token/jwt-key-mgmt?');
+        }
         $this->jwsSerializer = new CompactSerializer();
         $this->apiKey = $apiKey;
         $this->client = $client;
@@ -81,7 +82,6 @@ final class AndroidSafetyNetAttestationStatementSupport implements AttestationSt
         $this->initJwsVerifier();
         $this->leeway = $leeway;
         $this->maxAge = $maxAge;
-        $this->metadataStatementRepository = $metadataStatementRepository;
     }
 
     public function name(): string
@@ -89,6 +89,9 @@ final class AndroidSafetyNetAttestationStatementSupport implements AttestationSt
         return 'android-safetynet';
     }
 
+    /**
+     * @param array<string, mixed> $attestation
+     */
     public function load(array $attestation): AttestationStatement
     {
         Assertion::keyExists($attestation, 'attStmt', 'Invalid attestation object');
@@ -115,14 +118,6 @@ final class AndroidSafetyNetAttestationStatementSupport implements AttestationSt
         $trustPath = $attestationStatement->getTrustPath();
         Assertion::isInstanceOf($trustPath, CertificateTrustPath::class, 'Invalid trust path');
         $certificates = $trustPath->getCertificates();
-        if (null !== $this->metadataStatementRepository) {
-            $certificates = CertificateToolbox::checkAttestationMedata(
-                $attestationStatement,
-                $authenticatorData->getAttestedCredentialData()->getAaguid()->toString(),
-                $certificates,
-                $this->metadataStatementRepository
-            );
-        }
 
         $parsedCertificate = openssl_x509_parse(current($certificates));
         Assertion::isArray($parsedCertificate, 'Invalid attestation object');
@@ -217,6 +212,11 @@ final class AndroidSafetyNetAttestationStatementSupport implements AttestationSt
         throw new InvalidArgumentException('Unrecognized response');
     }
 
+    /**
+     * @param array<string> $certificates
+     *
+     * @return array<string>
+     */
     private function convertCertificatesToPem(array $certificates): array
     {
         foreach ($certificates as $k => $v) {
@@ -228,12 +228,19 @@ final class AndroidSafetyNetAttestationStatementSupport implements AttestationSt
 
     private function initJwsVerifier(): void
     {
-        $algorithmManager = new AlgorithmManager([
-            new Algorithm\RS256(), new Algorithm\RS384(), new Algorithm\RS512(),
-            new Algorithm\PS256(), new Algorithm\PS384(), new Algorithm\PS512(),
-            new Algorithm\ES256(), new Algorithm\ES384(), new Algorithm\ES512(),
-            new Algorithm\EdDSA(),
-        ]);
+        $algorithmClasses = [
+            Algorithm\RS256::class, Algorithm\RS384::class, Algorithm\RS512::class,
+            Algorithm\PS256::class, Algorithm\PS384::class, Algorithm\PS512::class,
+            Algorithm\ES256::class, Algorithm\ES384::class, Algorithm\ES512::class,
+            Algorithm\EdDSA::class,
+        ];
+        $algorithms = [];
+        foreach ($algorithmClasses as $key => $algorithm) {
+            if (class_exists($algorithm)) {
+                $algorithms[] = new $algorithm();
+            }
+        }
+        $algorithmManager = new AlgorithmManager($algorithms);
         $this->jwsVerifier = new JWSVerifier($algorithmManager);
     }
 }

@@ -11,14 +11,11 @@ declare(strict_types=1);
  * of the MIT license.  See the LICENSE file for details.
  */
 
-namespace Webauthn\TrustPath;
+namespace Webauthn\Counter;
 
-use JsonSerializable;
+use Webauthn\PublicKeyCredentialSource;
 
-interface TrustPath extends JsonSerializable
+interface CounterChecker
 {
-    /**
-     * @param array<string, mixed> $data
-     */
-    public static function createFromArray(array $data): self;
+    public function check(PublicKeyCredentialSource $publicKeyCredentialSource, int $currentCounter): void;
 }

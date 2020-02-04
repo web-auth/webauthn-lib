@@ -16,54 +16,51 @@ namespace Webauthn;
 use Assert\Assertion;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
-use Webauthn\AttestationStatement\AttestationStatement;
-use Webauthn\MetadataService\MetadataStatement;
-use Webauthn\MetadataService\MetadataStatementRepository;
 
 class CertificateToolbox
 {
-    public static function checkChain(array $certificates, array $trustedCertificates = []): void
+    /**
+     * @param array<string> $authenticatorCertificates
+     * @param array<string> $trustedCertificates
+     */
+    public static function checkChain(array $authenticatorCertificates, array $trustedCertificates = []): void
     {
-        $certificates = array_unique(array_merge($certificates, $trustedCertificates));
-        if (0 === \count($certificates)) {
+        self::checkCertificatesValidity($authenticatorCertificates);
+        self::checkCertificatesValidity($trustedCertificates);
+
+        if (0 === \count($trustedCertificates)) {
             return;
         }
-        self::checkCertificatesValidity($certificates);
         $filenames = [];
 
         $leafFilename = tempnam(sys_get_temp_dir(), 'webauthn-leaf-');
         Assertion::string($leafFilename, 'Unable to get a temporary filename');
 
-        $leafCertificate = array_shift($certificates);
+        $leafCertificate = array_shift($authenticatorCertificates);
         $result = file_put_contents($leafFilename, $leafCertificate);
         Assertion::integer($result, 'Unable to write temporary data');
         $filenames[] = $leafFilename;
 
-        $processArguments = [];
+        $processArguments = ['--no-CApath', '--no-CAfile'];
 
-        if (0 !== \count($certificates)) {
-            $caFilename = tempnam(sys_get_temp_dir(), 'webauthn-ca-');
-            Assertion::string($caFilename, 'Unable to get a temporary filename');
-
-            $caCertificate = array_pop($certificates);
-            $result = file_put_contents($caFilename, $caCertificate);
+        foreach ($trustedCertificates as $certificate) {
+            $trustedFilename = tempnam(sys_get_temp_dir(), 'webauthn-trusted-');
+            Assertion::string($trustedFilename, 'Unable to get a temporary filename');
+            $result = file_put_contents($trustedFilename, $certificate, FILE_APPEND);
             Assertion::integer($result, 'Unable to write temporary data');
-
-            $processArguments[] = '-CAfile';
-            $processArguments[] = $caFilename;
-            $filenames[] = $caFilename;
+            $result = file_put_contents($trustedFilename, PHP_EOL, FILE_APPEND);
+            Assertion::integer($result, 'Unable to write temporary data');
+            $processArguments[] = '-trusted';
+            $processArguments[] = $trustedFilename;
+            $filenames[] = $trustedFilename;
         }
-
-        if (0 !== \count($certificates)) {
+        foreach ($authenticatorCertificates as $certificate) {
             $untrustedFilename = tempnam(sys_get_temp_dir(), 'webauthn-untrusted-');
             Assertion::string($untrustedFilename, 'Unable to get a temporary filename');
-
-            foreach ($certificates as $certificate) {
-                $result = file_put_contents($untrustedFilename, $certificate, FILE_APPEND);
-                Assertion::integer($result, 'Unable to write temporary data');
-                $result = file_put_contents($untrustedFilename, PHP_EOL, FILE_APPEND);
-                Assertion::integer($result, 'Unable to write temporary data');
-            }
+            $result = file_put_contents($untrustedFilename, $certificate, FILE_APPEND);
+            Assertion::integer($result, 'Unable to write temporary data');
+            $result = file_put_contents($untrustedFilename, PHP_EOL, FILE_APPEND);
+            Assertion::integer($result, 'Unable to write temporary data');
             $processArguments[] = '-untrusted';
             $processArguments[] = $untrustedFilename;
             $filenames[] = $untrustedFilename;
@@ -86,61 +83,6 @@ class CertificateToolbox
         }
     }
 
-    public static function checkAttestationMedata(AttestationStatement $attestationStatement, string $aaguid, array $certificates, MetadataStatementRepository $metadataStatementRepository): array
-    {
-        $metadataStatement = $metadataStatementRepository->findOneByAAGUID($aaguid);
-        if (null === $metadataStatement) {
-            //Check certificate CA chain
-            self::checkChain($certificates);
-
-            return $certificates;
-        }
-
-        //FIXME: to decide later if relevant
-        /*Assertion::eq('fido2', $metadataStatement->getProtocolFamily(), sprintf('The protocol family of the authenticator "%s" should be "fido2". Got "%s".', $aaguid, $metadataStatement->getProtocolFamily()));
-        if (null !== $metadataStatement->getAssertionScheme()) {
-            Assertion::eq('FIDOV2', $metadataStatement->getAssertionScheme(), sprintf('The assertion scheme of the authenticator "%s" should be "FIDOV2". Got "%s".', $aaguid, $metadataStatement->getAssertionScheme()));
-        }*/
-
-        // Check Attestation Type is allowed
-        if (0 !== \count($metadataStatement->getAttestationTypes())) {
-            $type = self::getAttestationType($attestationStatement);
-            Assertion::inArray($type, $metadataStatement->getAttestationTypes(), 'Invalid attestation statement. The attestation type is not allowed for this authenticator');
-        }
-
-        $attestationRootCertificates = $metadataStatement->getAttestationRootCertificates();
-        if (0 === \count($attestationRootCertificates)) {
-            self::checkChain($certificates);
-
-            return $certificates;
-        }
-
-        foreach ($attestationRootCertificates as $key => $attestationRootCertificate) {
-            $attestationRootCertificates[$key] = self::fixPEMStructure($attestationRootCertificate);
-        }
-
-        //Check certificate CA chain
-        self::checkChain($certificates, $attestationRootCertificates);
-
-        return $certificates;
-    }
-
-    private static function getAttestationType(AttestationStatement $attestationStatement): int
-    {
-        switch ($attestationStatement->getType()) {
-            case AttestationStatement::TYPE_BASIC:
-                return MetadataStatement::ATTESTATION_BASIC_FULL;
-            case AttestationStatement::TYPE_SELF:
-                return MetadataStatement::ATTESTATION_BASIC_SURROGATE;
-            case AttestationStatement::TYPE_ATTCA:
-                return MetadataStatement::ATTESTATION_ATTCA;
-            case AttestationStatement::TYPE_ECDAA:
-                return MetadataStatement::ATTESTATION_ECDAA;
-            default:
-                throw new InvalidArgumentException('Invalid attestation type');
-        }
-    }
-
     public static function fixPEMStructure(string $certificate): string
     {
         $pemCert = '-----BEGIN CERTIFICATE-----'.PHP_EOL;
@@ -157,6 +99,11 @@ class CertificateToolbox
         return self::fixPEMStructure(base64_encode($derCertificate));
     }
 
+    /**
+     * @param array<string> $certificates
+     *
+     * @return array<string>
+     */
     public static function convertAllDERToPEM(array $certificates): array
     {
         $certs = [];
@@ -178,7 +125,7 @@ class CertificateToolbox
     }
 
     /**
-     * @param string[] $certificates
+     * @param array<string> $certificates
      */
     private static function checkCertificatesValidity(array $certificates): void
     {
@@ -193,7 +140,7 @@ class CertificateToolbox
     }
 
     /**
-     * @return string[]
+     * @return array<string>
      */
     private static function getCertificateHashes(): array
     {

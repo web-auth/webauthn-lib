@@ -30,7 +30,6 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
-use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Webauthn\AttestationStatement\AndroidKeyAttestationStatementSupport;
 use Webauthn\AttestationStatement\AndroidSafetyNetAttestationStatementSupport;
 use Webauthn\AttestationStatement\AttestationObjectLoader;
@@ -44,7 +43,7 @@ use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\MetadataService\DistantSingleMetadata;
 use Webauthn\MetadataService\MetadataService;
-use Webauthn\MetadataService\SimpleMetadataStatementRepository;
+use Webauthn\MetadataService\MetadataStatementRepository as MetadataStatementRepositoryInterface;
 use Webauthn\MetadataService\SingleMetadata;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialSourceRepository;
@@ -85,7 +84,8 @@ abstract class AbstractTestCase extends TestCase
                 $this->getAttestationStatementSupportManager($client),
                 $credentialRepository,
                 new IgnoreTokenBindingHandler(),
-                new ExtensionOutputCheckerHandler()
+                new ExtensionOutputCheckerHandler(),
+                $this->getMetadataStatementRepository()
             );
         }
 
@@ -102,7 +102,6 @@ abstract class AbstractTestCase extends TestCase
         if (!$this->authenticatorAssertionResponseValidator) {
             $this->authenticatorAssertionResponseValidator = new AuthenticatorAssertionResponseValidator(
                 $credentialRepository,
-                null,
                 new TokenBindingNotSupportedHandler(),
                 new ExtensionOutputCheckerHandler(),
                 $this->getAlgorithmManager()
@@ -116,30 +115,19 @@ abstract class AbstractTestCase extends TestCase
     {
         $attestationStatementSupportManager = new AttestationStatementSupportManager();
         $attestationStatementSupportManager->add(new NoneAttestationStatementSupport());
-        $attestationStatementSupportManager->add(new AndroidKeyAttestationStatementSupport(
-            null,
-            $this->getSimpleMetadataStatementRepository()
-        ));
+        $attestationStatementSupportManager->add(new AndroidKeyAttestationStatementSupport());
         $attestationStatementSupportManager->add(new AndroidSafetyNetAttestationStatementSupport(
             $client ?? new Client(),
             'api_key',
             new Psr17Factory(),
             0,
-            99999999999,
-            $this->getSimpleMetadataStatementRepository()
+            99999999999
         ));
-        $attestationStatementSupportManager->add(new FidoU2FAttestationStatementSupport(
-            null,
-            $this->getSimpleMetadataStatementRepository()
-        ));
+        $attestationStatementSupportManager->add(new FidoU2FAttestationStatementSupport());
         $attestationStatementSupportManager->add(new PackedAttestationStatementSupport(
-            null,
-            $this->getAlgorithmManager(),
-            $this->getSimpleMetadataStatementRepository()
+            $this->getAlgorithmManager()
         ));
-        $attestationStatementSupportManager->add(new TPMAttestationStatementSupport(
-            $this->getSimpleMetadataStatementRepository()
-        ));
+        $attestationStatementSupportManager->add(new TPMAttestationStatementSupport());
 
         return $attestationStatementSupportManager;
     }
@@ -175,7 +163,8 @@ abstract class AbstractTestCase extends TestCase
     {
         if (!$this->attestationObjectLoader) {
             $this->attestationObjectLoader = new AttestationObjectLoader(
-                $this->getAttestationStatementSupportManager()
+                $this->getAttestationStatementSupportManager(),
+                $this->getMetadataStatementRepository()
             );
         }
 
@@ -183,40 +172,37 @@ abstract class AbstractTestCase extends TestCase
     }
 
     /**
-     * @var SimpleMetadataStatementRepository|null
+     * @var MetadataStatementRepositoryInterface|null
      */
-    private $simpleMetadataStatementRepository;
+    private $metadataStatementRepository;
 
-    private function getSimpleMetadataStatementRepository(): SimpleMetadataStatementRepository
+    private function getMetadataStatementRepository(): MetadataStatementRepositoryInterface
     {
-        if (!$this->simpleMetadataStatementRepository) {
-            $this->simpleMetadataStatementRepository = new SimpleMetadataStatementRepository(
-                new FilesystemAdapter('webauthn')
-            );
+        if (!$this->metadataStatementRepository) {
+            $this->metadataStatementRepository = new MetadataStatementRepository();
             foreach ($this->getSingleStatements() as $name => $statement) {
-                $this->simpleMetadataStatementRepository->addSingleStatement($name, new SingleMetadata(
-                    $statement,
-                    false
-                ));
+                $this->metadataStatementRepository->addSingleStatement(
+                    new SingleMetadata($statement, false)
+                );
             }
             $client = new Client();
             $this->prepareResponsesMap($client);
 
-            $this->simpleMetadataStatementRepository->addSingleStatement('solo', new DistantSingleMetadata(
+            $this->metadataStatementRepository->addSingleStatement(new DistantSingleMetadata(
                 'https://bar.foo/solokeys/solo/2.1.0/metadata/Solo-FIDO2-CTAP2-Authenticator.json',
                 false,
                 $client,
                 new Psr17Factory()
             ));
 
-            $this->simpleMetadataStatementRepository->addService('fido-alliance', new MetadataService(
+            $this->metadataStatementRepository->addService(new MetadataService(
                 'https://foo.bar',
                 $client,
                 new Psr17Factory()
             ));
         }
 
-        return $this->simpleMetadataStatementRepository;
+        return $this->metadataStatementRepository;
     }
 
     private function getSingleStatements(): array
