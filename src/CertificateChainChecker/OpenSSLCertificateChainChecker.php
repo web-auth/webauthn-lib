@@ -11,12 +11,14 @@ declare(strict_types=1);
  * of the MIT license.  See the LICENSE file for details.
  */
 
-namespace Webauthn;
+namespace Webauthn\CertificateChainChecker;
 
 use Assert\Assertion;
 use function count;
-use function in_array;
 use InvalidArgumentException;
+use function is_int;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
 use RuntimeException;
 use Safe\Exceptions\FilesystemException;
 use function Safe\file_put_contents;
@@ -28,31 +30,63 @@ use function Safe\tempnam;
 use function Safe\unlink;
 use Symfony\Component\Process\Process;
 
-class CertificateToolbox
+final class OpenSSLCertificateChainChecker implements CertificateChainChecker
 {
     /**
-     * @deprecated "This method is deprecated since v3.3 and will be removed en v4.0. Please use Webauthn\CertificateChainChecker\CertificateChainChecker instead"
-     *
+     * @var ClientInterface
+     */
+    private $client;
+
+    /**
+     * @var RequestFactoryInterface
+     */
+    private $requestFactory;
+
+    /**
+     * @var string[]
+     */
+    private $rootCertificates = [];
+
+    public function __construct(ClientInterface $client, RequestFactoryInterface $requestFactory)
+    {
+        $this->client = $client;
+        $this->requestFactory = $requestFactory;
+    }
+
+    public function addRootCertificate(string $certificate): self
+    {
+        $this->rootCertificates[] = $certificate;
+
+        return $this;
+    }
+
+    /**
      * @param string[] $authenticatorCertificates
      * @param string[] $trustedCertificates
      */
-    public static function checkChain(array $authenticatorCertificates, array $trustedCertificates = []): void
+    public function check(array $authenticatorCertificates, array $trustedCertificates): void
     {
         if (0 === count($trustedCertificates)) {
-            self::checkCertificatesValidity($authenticatorCertificates, true);
+            $this->checkCertificatesValidity($authenticatorCertificates, true);
 
             return;
         }
-        self::checkCertificatesValidity($authenticatorCertificates, false);
+        $this->checkCertificatesValidity($authenticatorCertificates, false);
 
+        $hasCrls = false;
         $processArguments = ['-no-CAfile', '-no-CApath'];
 
-        $caDirname = self::createTemporaryDirectory();
+        $caDirname = $this->createTemporaryDirectory();
         $processArguments[] = '--CApath';
         $processArguments[] = $caDirname;
 
         foreach ($trustedCertificates as $certificate) {
-            self::prepareCertificate($caDirname, $certificate, 'webauthn-trusted-', '.pem');
+            $this->saveToTemporaryFile($caDirname, $certificate, 'webauthn-trusted-', '.pem');
+            $crl = $this->getCrls($certificate);
+            if ('' !== $crl) {
+                $hasCrls = true;
+                $this->saveToTemporaryFile($caDirname, $crl, 'webauthn-trusted-crl-', '.crl');
+            }
         }
 
         $rehashProcess = new Process(['openssl', 'rehash', $caDirname]);
@@ -66,17 +100,33 @@ class CertificateToolbox
 
         $filenames = [];
         $leafCertificate = array_shift($authenticatorCertificates);
-        $leafFilename = self::prepareCertificate(sys_get_temp_dir(), $leafCertificate, 'webauthn-leaf-', '.pem');
+        $leafFilename = $this->saveToTemporaryFile(sys_get_temp_dir(), $leafCertificate, 'webauthn-leaf-', '.pem');
+        $crl = $this->getCrls($leafCertificate);
+        if ('' !== $crl) {
+            $hasCrls = true;
+            $this->saveToTemporaryFile($caDirname, $crl, 'webauthn-leaf-crl-', '.pem');
+        }
         $filenames[] = $leafFilename;
 
         foreach ($authenticatorCertificates as $certificate) {
-            $untrustedFilename = self::prepareCertificate(sys_get_temp_dir(), $certificate, 'webauthn-untrusted-', '.pem');
+            $untrustedFilename = $this->saveToTemporaryFile(sys_get_temp_dir(), $certificate, 'webauthn-untrusted-', '.pem');
+            $crl = $this->getCrls($certificate);
+            if ('' !== $crl) {
+                $hasCrls = true;
+                $this->saveToTemporaryFile($caDirname, $crl, 'webauthn-untrusted-crl-', '.pem');
+            }
             $processArguments[] = '-untrusted';
             $processArguments[] = $untrustedFilename;
             $filenames[] = $untrustedFilename;
         }
 
         $processArguments[] = $leafFilename;
+        if ($hasCrls) {
+            array_unshift($processArguments, '-crl_check');
+            array_unshift($processArguments, '-crl_check_all');
+            //array_unshift($processArguments, '-crl_download');
+            array_unshift($processArguments, '-extended_crl');
+        }
         array_unshift($processArguments, 'openssl', 'verify');
 
         $process = new Process($processArguments);
@@ -92,64 +142,23 @@ class CertificateToolbox
                 continue;
             }
         }
-        self::deleteDirectory($caDirname);
+        $this->deleteDirectory($caDirname);
 
         if (!$process->isSuccessful()) {
             throw new InvalidArgumentException('Invalid certificate or certificate chain');
         }
     }
 
-    public static function fixPEMStructure(string $certificate, string $type = 'CERTIFICATE'): string
-    {
-        $pemCert = '-----BEGIN '.$type.'-----'.PHP_EOL;
-        $pemCert .= chunk_split($certificate, 64, PHP_EOL);
-        $pemCert .= '-----END '.$type.'-----'.PHP_EOL;
-
-        return $pemCert;
-    }
-
-    public static function convertDERToPEM(string $certificate, string $type = 'CERTIFICATE'): string
-    {
-        $derCertificate = self::unusedBytesFix($certificate);
-
-        return self::fixPEMStructure(base64_encode($derCertificate), $type);
-    }
-
-    /**
-     * @param string[] $certificates
-     *
-     * @return string[]
-     */
-    public static function convertAllDERToPEM(array $certificates, string $type = 'CERTIFICATE'): array
-    {
-        $certs = [];
-        foreach ($certificates as $publicKey) {
-            $certs[] = self::convertDERToPEM($publicKey, $type);
-        }
-
-        return $certs;
-    }
-
-    private static function unusedBytesFix(string $certificate): string
-    {
-        $certificateHash = hash('sha256', $certificate);
-        if (in_array($certificateHash, self::getCertificateHashes(), true)) {
-            $certificate[mb_strlen($certificate, '8bit') - 257] = "\0";
-        }
-
-        return $certificate;
-    }
-
     /**
      * @param string[] $certificates
      */
-    private static function checkCertificatesValidity(array $certificates, bool $allowRootCertificate): void
+    private function checkCertificatesValidity(array $certificates, bool $allowRootCertificate): void
     {
         foreach ($certificates as $certificate) {
             $parsed = openssl_x509_parse($certificate);
             Assertion::isArray($parsed, 'Unable to read the certificate');
             if (false === $allowRootCertificate) {
-                self::checkRootCertificate($parsed);
+                $this->checkRootCertificate($parsed);
             }
 
             Assertion::keyExists($parsed, 'validTo_time_t', 'The certificate has no validity period');
@@ -162,7 +171,7 @@ class CertificateToolbox
     /**
      * @param array<string, mixed> $parsed
      */
-    private static function checkRootCertificate(array $parsed): void
+    private function checkRootCertificate(array $parsed): void
     {
         Assertion::keyExists($parsed, 'subject', 'The certificate has no subject');
         Assertion::keyExists($parsed, 'issuer', 'The certificate has no issuer');
@@ -173,22 +182,7 @@ class CertificateToolbox
         Assertion::notEq($subject, $issuer, 'Root certificates are not allowed');
     }
 
-    /**
-     * @return string[]
-     */
-    private static function getCertificateHashes(): array
-    {
-        return [
-            '349bca1031f8c82c4ceca38b9cebf1a69df9fb3b94eed99eb3fb9aa3822d26e8',
-            'dd574527df608e47ae45fbba75a2afdd5c20fd94a02419381813cd55a2a3398f',
-            '1d8764f0f7cd1352df6150045c8f638e517270e8b5dda1c63ade9c2280240cae',
-            'd0edc9a91a1677435a953390865d208c55b3183c6759c9b5a7ff494c322558eb',
-            '6073c436dcd064a48127ddbf6032ac1a66fd59a0c24434f070d4e564c124c897',
-            'ca993121846c464d666096d35f13bf44c1b05af205f9b4a1e00cf6cc10c5e511',
-        ];
-    }
-
-    private static function createTemporaryDirectory(): string
+    private function createTemporaryDirectory(): string
     {
         $caDir = tempnam(sys_get_temp_dir(), 'webauthn-ca-');
         if (file_exists($caDir)) {
@@ -202,7 +196,7 @@ class CertificateToolbox
         return $caDir;
     }
 
-    private static function deleteDirectory(string $dirname): void
+    private function deleteDirectory(string $dirname): void
     {
         $rehashProcess = new Process(['rm', '-rf', $dirname]);
         $rehashProcess->run();
@@ -211,13 +205,35 @@ class CertificateToolbox
         }
     }
 
-    private static function prepareCertificate(string $folder, string $certificate, string $prefix, string $suffix): string
+    private function saveToTemporaryFile(string $folder, string $certificate, string $prefix, string $suffix): string
     {
-        $untrustedFilename = tempnam($folder, $prefix);
-        rename($untrustedFilename, $untrustedFilename.$suffix);
-        file_put_contents($untrustedFilename.$suffix, $certificate, FILE_APPEND);
-        file_put_contents($untrustedFilename.$suffix, PHP_EOL, FILE_APPEND);
+        $filename = tempnam($folder, $prefix);
+        rename($filename, $filename.$suffix);
+        file_put_contents($filename.$suffix, $certificate, FILE_APPEND);
 
-        return $untrustedFilename.$suffix;
+        return $filename.$suffix;
+    }
+
+    private function getCrls(string $certificate): string
+    {
+        $parsed = openssl_x509_parse($certificate);
+        if (false === $parsed || !isset($parsed['extensions']['crlDistributionPoints'])) {
+            return '';
+        }
+        $endpoint = $parsed['extensions']['crlDistributionPoints'];
+        $pos = mb_strpos($endpoint, 'URI:');
+        if (!is_int($pos)) {
+            return '';
+        }
+
+        $endpoint = trim(mb_substr($endpoint, $pos + 4));
+        $request = $this->requestFactory->createRequest('GET', $endpoint);
+        $response = $this->client->sendRequest($request);
+
+        if (200 !== $response->getStatusCode()) {
+            return '';
+        }
+
+        return $response->getBody()->getContents();
     }
 }
