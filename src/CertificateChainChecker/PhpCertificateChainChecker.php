@@ -38,6 +38,11 @@ final class PhpCertificateChainChecker implements CertificateChainChecker
      */
     public function check(array $authenticatorCertificates, array $trustedCertificates): void
     {
+        foreach ($trustedCertificates as $key => $cert) {
+            if (in_array($cert, $authenticatorCertificates, true)) {
+                unset($trustedCertificates[$key]);
+            }
+        }
         if (count($trustedCertificates) === 0) {
             $this->checkCertificatesValidity($authenticatorCertificates, true);
 
@@ -71,7 +76,7 @@ final class PhpCertificateChainChecker implements CertificateChainChecker
             $trustedCertificatesFilenames,
             $untrustedCertificatesFilename
         );
-        if ($result === false) {
+        if ($result !== true) {
             throw new RuntimeException('Unable to verify the certificate chain');
         }
         $crls = [];
