@@ -128,7 +128,7 @@ class PublicKeyCredentialLoader
                     $response['clientDataJSON']
                 ), $attestationObject);
             case array_key_exists('authenticatorData', $response) && array_key_exists('signature', $response):
-                $authData = Base64::decode($response['authenticatorData']);
+                $authData = Base64::decodeUrlSafe($response['authenticatorData']);
 
                 $authDataStream = new StringStream($authData);
                 $rp_id_hash = $authDataStream->read(32);
