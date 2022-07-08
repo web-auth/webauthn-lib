@@ -58,9 +58,13 @@ class AuthenticatorSelectionCriteria implements JsonSerializable
         return $this;
     }
 
+    /**
+     * @deprecated since v4.1. Please use setResidentKey instead
+     */
     public function setRequireResidentKey(bool $requireResidentKey): self
     {
         $this->requireResidentKey = $requireResidentKey;
+        $this->residentKey = $requireResidentKey ? self::RESIDENT_KEY_REQUIREMENT_REQUIRED : self::RESIDENT_KEY_REQUIREMENT_DISCOURAGED;
 
         return $this;
     }
@@ -75,6 +79,7 @@ class AuthenticatorSelectionCriteria implements JsonSerializable
     public function setResidentKey(string $residentKey): self
     {
         $this->residentKey = $residentKey;
+        $this->requireResidentKey = $residentKey === self::RESIDENT_KEY_REQUIREMENT_REQUIRED;
 
         return $this;
     }
