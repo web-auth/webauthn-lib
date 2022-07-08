@@ -136,7 +136,7 @@ class AuthenticatorSelectionCriteria implements JsonSerializable
         $json = [
             'requireResidentKey' => $this->requireResidentKey,
             'userVerification' => $this->userVerification,
-            'residentKey' => $this->residentKey,
+            // 'residentKey' => $this->residentKey, // TODO: On hold. Waiting for issue clarification. See https://github.com/fido-alliance/conformance-test-tools-resources/issues/676
         ];
         if ($this->authenticatorAttachment !== null) {
             $json['authenticatorAttachment'] = $this->authenticatorAttachment;
