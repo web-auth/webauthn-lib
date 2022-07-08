@@ -68,7 +68,7 @@ final class AndroidKeyAttestationStatementSupport implements AttestationStatemen
         );
         $certificates = CertificateToolbox::convertAllDERToPEM($certificates);
 
-        return AttestationStatement::createBasic(
+        return AttestationStatement::createAnonymizationCA(
             $attestation['fmt'],
             $attestation['attStmt'],
             new CertificateTrustPath($certificates)
