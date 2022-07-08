@@ -38,11 +38,24 @@ final class PhpCertificateChainChecker implements CertificateChainChecker
      */
     public function check(array $authenticatorCertificates, array $trustedCertificates): void
     {
-        foreach ($trustedCertificates as $key => $cert) {
-            if (in_array($cert, $authenticatorCertificates, true)) {
-                unset($trustedCertificates[$key]);
-            }
+        $authenticatorCertificates = array_values($authenticatorCertificates);
+        $trustedCertificates = array_values($trustedCertificates);
+
+        if (count($authenticatorCertificates) === 1 &&
+            count($trustedCertificates) === 1
+            && $authenticatorCertificates[0] === $trustedCertificates[0]
+        ) {
+            $this->checkCertificatesValidity($authenticatorCertificates, false);
+
+            return;
         }
+        $uniqueCertificates = array_unique(array_merge($authenticatorCertificates, $trustedCertificates));
+        Assertion::count(
+            $uniqueCertificates,
+            count($authenticatorCertificates) + count($trustedCertificates),
+            'Invalid certificate chain with duplicated certificates.'
+        );
+
         if (count($trustedCertificates) === 0) {
             $this->checkCertificatesValidity($authenticatorCertificates, true);
 
