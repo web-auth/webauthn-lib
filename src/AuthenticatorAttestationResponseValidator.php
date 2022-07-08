@@ -352,6 +352,7 @@ class AuthenticatorAttestationResponseValidator
             AttestationStatement::TYPE_SELF => MetadataStatement::ATTESTATION_BASIC_SURROGATE,
             AttestationStatement::TYPE_ATTCA => MetadataStatement::ATTESTATION_ATTCA,
             AttestationStatement::TYPE_ECDAA => MetadataStatement::ATTESTATION_ECDAA,
+            AttestationStatement::TYPE_ANONCA => MetadataStatement::ATTESTATION_ANONCA,
             default => throw new InvalidArgumentException('Invalid attestation type'),
         };
     }
