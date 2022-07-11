@@ -14,7 +14,7 @@ use function Safe\openssl_pkey_get_public;
 use function Safe\openssl_verify;
 use Throwable;
 use Webauthn\AuthenticatorData;
-use Webauthn\CertificateToolbox;
+use Webauthn\MetadataService\CertificateChain\CertificateToolbox;
 use Webauthn\StringStream;
 use Webauthn\TrustPath\CertificateTrustPath;
 

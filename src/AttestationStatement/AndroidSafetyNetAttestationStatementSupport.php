@@ -29,7 +29,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use Webauthn\AuthenticatorData;
-use Webauthn\CertificateToolbox;
+use Webauthn\MetadataService\CertificateChain\CertificateToolbox;
 use Webauthn\TrustPath\CertificateTrustPath;
 
 final class AndroidSafetyNetAttestationStatementSupport implements AttestationStatementSupport

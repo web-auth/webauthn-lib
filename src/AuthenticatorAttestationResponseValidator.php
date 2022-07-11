@@ -22,7 +22,8 @@ use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientInputs;
 use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientOutputs;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
-use Webauthn\CertificateChainChecker\CertificateChainChecker;
+use Webauthn\MetadataService\CertificateChain\CertificateChainValidator;
+use Webauthn\MetadataService\CertificateChain\CertificateToolbox;
 use Webauthn\MetadataService\MetadataStatementRepository;
 use Webauthn\MetadataService\Statement\MetadataStatement;
 use Webauthn\MetadataService\StatusReportRepository;
@@ -38,7 +39,7 @@ class AuthenticatorAttestationResponseValidator
 
     private ?StatusReportRepository $statusReportRepository = null;
 
-    private ?CertificateChainChecker $certificateChainChecker = null;
+    private ?CertificateChainValidator $certificateChainValidator = null;
 
     public function __construct(
         private readonly AttestationStatementSupportManager $attestationStatementSupportManager,
@@ -70,7 +71,7 @@ class AuthenticatorAttestationResponseValidator
         return $this;
     }
 
-    public function setCertificateChainChecker(): self
+    public function setCertificateChainValidator(): self
     {
         return $this;
     }
@@ -78,10 +79,10 @@ class AuthenticatorAttestationResponseValidator
     public function enableMetadataStatementSupport(
         MetadataStatementRepository $metadataStatementRepository,
         StatusReportRepository $statusReportRepository,
-        CertificateChainChecker $certificateChainChecker,
+        CertificateChainValidator $certificateChainValidator,
     ): self {
         $this->metadataStatementRepository = $metadataStatementRepository;
-        $this->certificateChainChecker = $certificateChainChecker;
+        $this->certificateChainValidator = $certificateChainValidator;
         $this->statusReportRepository = $statusReportRepository;
 
         return $this;
@@ -241,18 +242,15 @@ class AuthenticatorAttestationResponseValidator
         $authenticatorCertificates = $trustPath->getCertificates();
 
         if ($metadataStatement === null) {
-            $this->certificateChainChecker?->check($authenticatorCertificates, []);
+            $this->certificateChainValidator?->check($authenticatorCertificates, []);
 
             return;
         }
 
-        $trustedCertificates = array_merge(
-            $metadataStatement->getAttestationRootCertificates(),
-            $metadataStatement->getRootCertificates()
+        $trustedCertificates = CertificateToolbox::fixPEMStructures(
+            $metadataStatement->getAttestationRootCertificates()
         );
-        $trustedCertificates = CertificateToolbox::fixPEMStructures($trustedCertificates);
-
-        $this->certificateChainChecker?->check($authenticatorCertificates, $trustedCertificates);
+        $this->certificateChainValidator?->check($authenticatorCertificates, $trustedCertificates);
     }
 
     private function checkMetadataStatement(
