@@ -32,7 +32,7 @@ use Webauthn\Util\Base64;
 
 final class TPMAttestationStatementSupport implements AttestationStatementSupport
 {
-    private readonly ?Clock $clock;
+    private readonly Clock $clock;
 
     public function __construct(?Clock $clock = null)
     {
