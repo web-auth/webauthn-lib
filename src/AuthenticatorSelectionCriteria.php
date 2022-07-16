@@ -120,11 +120,21 @@ class AuthenticatorSelectionCriteria implements JsonSerializable
      */
     public static function createFromArray(array $json): self
     {
+        $authenticatorAttachment = $json['authenticatorAttachment'] ?? null;
+        $requireResidentKey = $json['requireResidentKey'] ?? false;
+        $userVerification = $json['userVerification'] ?? self::USER_VERIFICATION_REQUIREMENT_PREFERRED;
+        $residentKey = $json['residentKey'] ?? self::RESIDENT_KEY_REQUIREMENT_PREFERRED;
+
+        Assertion::nullOrString($authenticatorAttachment, 'Invalid "authenticatorAttachment" value');
+        Assertion::boolean($requireResidentKey, 'Invalid "requireResidentKey" value');
+        Assertion::string($userVerification, 'Invalid "userVerification" value');
+        Assertion::string($residentKey, 'Invalid "residentKey" value');
+
         return self::create()
-            ->setAuthenticatorAttachment($json['authenticatorAttachment'] ?? null)
-            ->setRequireResidentKey($json['requireResidentKey'] ?? false)
-            ->setUserVerification($json['userVerification'] ?? self::USER_VERIFICATION_REQUIREMENT_PREFERRED)
-            ->setResidentKey($json['residentKey'] ?? self::RESIDENT_KEY_REQUIREMENT_PREFERRED)
+            ->setAuthenticatorAttachment($authenticatorAttachment)
+            ->setRequireResidentKey($requireResidentKey)
+            ->setUserVerification($userVerification)
+            ->setResidentKey($residentKey)
         ;
     }
 
