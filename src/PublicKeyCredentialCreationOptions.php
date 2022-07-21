@@ -193,8 +193,8 @@ final class PublicKeyCredentialCreationOptions extends PublicKeyCredentialOption
                 ->setTimeout($json['timeout'] ?? null)
                 ->setExtensions(
                     isset($json['extensions']) ? AuthenticationExtensionsClientInputs::createFromArray(
-                    $json['extensions']
-                ) : new AuthenticationExtensionsClientInputs()
+                        $json['extensions']
+                    ) : new AuthenticationExtensionsClientInputs()
                 );
     }
 
