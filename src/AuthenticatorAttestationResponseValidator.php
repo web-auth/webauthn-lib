@@ -119,8 +119,7 @@ class AuthenticatorAttestationResponseValidator
 
             $rpId = $publicKeyCredentialCreationOptions->getRp()
                 ->getId() ?? $request->getUri()
-                ->getHost()
-                ;
+                ->getHost();
             $facetId = $this->getFacetId(
                 $rpId,
                 $publicKeyCredentialCreationOptions->getExtensions(),
@@ -167,8 +166,7 @@ class AuthenticatorAttestationResponseValidator
             }
 
             $extensionsClientOutputs = $attestationObject->getAuthData()
-                ->getExtensions()
-            ;
+                ->getExtensions();
             if ($extensionsClientOutputs !== null) {
                 $this->extensionOutputCheckerHandler->check(
                     $publicKeyCredentialCreationOptions->getExtensions(),
@@ -178,8 +176,7 @@ class AuthenticatorAttestationResponseValidator
 
             $this->checkMetadataStatement($publicKeyCredentialCreationOptions, $attestationObject);
             $fmt = $attestationObject->getAttStmt()
-                ->getFmt()
-            ;
+                ->getFmt();
             Assertion::true(
                 $this->attestationStatementSupportManager->has($fmt),
                 'Unsupported attestation statement format.'
@@ -201,8 +198,7 @@ class AuthenticatorAttestationResponseValidator
                 'There is no attested credential data.'
             );
             $attestedCredentialData = $attestationObject->getAuthData()
-                ->getAttestedCredentialData()
-            ;
+                ->getAttestedCredentialData();
             Assertion::notNull($attestedCredentialData, 'There is no attested credential data.');
             $credentialId = $attestedCredentialData->getCredentialId();
             Assertion::null(
@@ -259,12 +255,10 @@ class AuthenticatorAttestationResponseValidator
     ): void {
         $attestationStatement = $attestationObject->getAttStmt();
         $attestedCredentialData = $attestationObject->getAuthData()
-            ->getAttestedCredentialData()
-        ;
+            ->getAttestedCredentialData();
         Assertion::notNull($attestedCredentialData, 'No attested credential data found');
         $aaguid = $attestedCredentialData->getAaguid()
-            ->__toString()
-        ;
+            ->__toString();
         if ($publicKeyCredentialCreationOptions->getAttestation() === PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE) {
             $this->logger->debug('No attestation is asked.');
             //No attestation is asked. We shall ensure that the data is anonymous.
@@ -404,11 +398,9 @@ class AuthenticatorAttestationResponseValidator
             return $rpId;
         }
         $appId = $authenticationExtensionsClientInputs->get('appid')
-            ->value()
-        ;
+            ->value();
         $wasUsed = $authenticationExtensionsClientOutputs->get('appid')
-            ->value()
-        ;
+            ->value();
         if (! is_string($appId) || $wasUsed !== true) {
             return $rpId;
         }

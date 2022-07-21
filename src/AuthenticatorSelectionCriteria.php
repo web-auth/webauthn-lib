@@ -134,8 +134,7 @@ class AuthenticatorSelectionCriteria implements JsonSerializable
             ->setAuthenticatorAttachment($authenticatorAttachment)
             ->setRequireResidentKey($requireResidentKey)
             ->setUserVerification($userVerification)
-            ->setResidentKey($residentKey)
-        ;
+            ->setResidentKey($residentKey);
     }
 
     /**

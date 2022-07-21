@@ -91,8 +91,7 @@ final class FidoU2FAttestationStatementSupport implements AttestationStatementSu
         $dataToVerify .= $authenticatorData->getRpIdHash();
         $dataToVerify .= $clientDataJSONHash;
         $dataToVerify .= $authenticatorData->getAttestedCredentialData()
-            ?->getCredentialId()
-        ;
+            ?->getCredentialId();
         $dataToVerify .= $this->extractPublicKey(
             $authenticatorData->getAttestedCredentialData()
                 ?->getCredentialPublicKey()
