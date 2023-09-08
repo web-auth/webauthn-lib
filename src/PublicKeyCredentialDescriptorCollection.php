@@ -6,6 +6,7 @@ namespace Webauthn;
 
 use ArrayIterator;
 use Countable;
+use InvalidArgumentException;
 use Iterator;
 use IteratorAggregate;
 use JsonSerializable;
@@ -16,15 +17,30 @@ use const JSON_THROW_ON_ERROR;
 
 /**
  * @implements IteratorAggregate<PublicKeyCredentialDescriptor>
+ * @deprecated since 4.8.0 and will be removed in 5.0.0.
  */
 class PublicKeyCredentialDescriptorCollection implements JsonSerializable, Countable, IteratorAggregate
 {
     /**
-     * @param PublicKeyCredentialDescriptor[] $publicKeyCredentialDescriptors
+     * @var array<string, PublicKeyCredentialDescriptor>
+     * @readonly
+     */
+    public array $publicKeyCredentialDescriptors;
+
+    /**
+     * @private
+     * @param PublicKeyCredentialDescriptor[] $pkCredentialDescriptors
      */
     public function __construct(
-        public array $publicKeyCredentialDescriptors = []
+        array $pkCredentialDescriptors = []
     ) {
+        $this->publicKeyCredentialDescriptors = [];
+        foreach ($pkCredentialDescriptors as $pkCredentialDescriptor) {
+            $pkCredentialDescriptor instanceof PublicKeyCredentialDescriptor || throw new InvalidArgumentException(
+                'Expected only instances of ' . PublicKeyCredentialDescriptor::class
+            );
+            $this->publicKeyCredentialDescriptors[$pkCredentialDescriptor->id] = $pkCredentialDescriptor;
+        }
     }
 
     /**
@@ -36,7 +52,7 @@ class PublicKeyCredentialDescriptorCollection implements JsonSerializable, Count
     }
 
     /**
-     * @deprecated since 4.7.0. Please use the property directly.
+     * @deprecated since 4.7.0. Please use the {self::create} instead.
      */
     public function add(PublicKeyCredentialDescriptor ...$publicKeyCredentialDescriptors): void
     {
@@ -54,7 +70,7 @@ class PublicKeyCredentialDescriptorCollection implements JsonSerializable, Count
     }
 
     /**
-     * @deprecated since 4.7.0. Please use the property directly.
+     * @deprecated since 4.7.0. No replacement.
      */
     public function remove(string $id): void
     {
@@ -83,10 +99,7 @@ class PublicKeyCredentialDescriptorCollection implements JsonSerializable, Count
      */
     public function jsonSerialize(): array
     {
-        return array_map(
-            static fn (PublicKeyCredentialDescriptor $object): array => $object->jsonSerialize(),
-            $this->publicKeyCredentialDescriptors
-        );
+        return $this->publicKeyCredentialDescriptors;
     }
 
     public static function createFromString(string $data): self
