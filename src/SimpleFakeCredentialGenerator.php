@@ -46,7 +46,7 @@ final class SimpleFakeCredentialGenerator implements FakeCredentialGenerator
         $transports = [
             PublicKeyCredentialDescriptor::AUTHENTICATOR_TRANSPORT_USB,
             PublicKeyCredentialDescriptor::AUTHENTICATOR_TRANSPORT_NFC,
-            PublicKeyCredentialDescriptor::AUTHENTICATOR_TRANSPORT_INTERNAL,
+            PublicKeyCredentialDescriptor::AUTHENTICATOR_TRANSPORT_BLE,
         ];
         $credentials = [];
         for ($i = 0; $i < random_int(1, 3); $i++) {

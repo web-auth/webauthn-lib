@@ -66,6 +66,7 @@ class AttestedCredentialData implements JsonSerializable
 
     /**
      * @param mixed[] $json
+     * @deprecated since 4.9.0 and will be removed in 5.0.0. Please use the serializer instead.
      */
     public static function createFromArray(array $json): self
     {

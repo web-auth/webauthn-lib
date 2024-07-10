@@ -9,6 +9,9 @@ use function array_key_exists;
 use function is_array;
 use function is_string;
 
+/**
+ * @deprecated since 4.9.0 and will be removed in 5.0.0. Use the serializer instead
+ */
 final class TrustPathLoader
 {
     /**
