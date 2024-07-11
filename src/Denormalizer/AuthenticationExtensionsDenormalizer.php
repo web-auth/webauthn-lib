@@ -8,10 +8,7 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Webauthn\AuthenticationExtensions\AuthenticationExtension;
 use Webauthn\AuthenticationExtensions\AuthenticationExtensions;
-use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientInputs;
-use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientOutputs;
 use function assert;
-use function in_array;
 use function is_array;
 use function is_string;
 
@@ -35,15 +32,7 @@ final class AuthenticationExtensionsDenormalizer implements DenormalizerInterfac
 
     public function supportsDenormalization(mixed $data, string $type, string $format = null, array $context = []): bool
     {
-        return in_array(
-            $type,
-            [
-                AuthenticationExtensions::class,
-                AuthenticationExtensionsClientOutputs::class,
-                AuthenticationExtensionsClientInputs::class,
-            ],
-            true
-        );
+        return $type === AuthenticationExtensions::class;
     }
 
     /**
@@ -53,8 +42,6 @@ final class AuthenticationExtensionsDenormalizer implements DenormalizerInterfac
     {
         return [
             AuthenticationExtensions::class => true,
-            AuthenticationExtensionsClientInputs::class => true,
-            AuthenticationExtensionsClientOutputs::class => true,
         ];
     }
 

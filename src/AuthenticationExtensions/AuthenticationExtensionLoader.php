@@ -8,13 +8,13 @@ use CBOR\CBORObject;
 use CBOR\MapObject;
 use Webauthn\Exception\AuthenticationExtensionException;
 
-abstract class AuthenticationExtensionsClientOutputsLoader
+abstract class AuthenticationExtensionLoader
 {
     public static function load(CBORObject $object): AuthenticationExtensions
     {
         $object instanceof MapObject || throw AuthenticationExtensionException::create('Invalid extension object');
         $data = $object->normalize();
-        return AuthenticationExtensionsClientOutputs::create(
+        return AuthenticationExtensions::create(
             array_map(
                 fn (mixed $value, string $key) => AuthenticationExtension::create($key, $value),
                 $data,

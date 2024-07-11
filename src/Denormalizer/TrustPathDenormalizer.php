@@ -8,7 +8,6 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Webauthn\Exception\InvalidTrustPathException;
 use Webauthn\TrustPath\CertificateTrustPath;
-use Webauthn\TrustPath\EcdaaKeyIdTrustPath;
 use Webauthn\TrustPath\EmptyTrustPath;
 use Webauthn\TrustPath\TrustPath;
 use function array_key_exists;
@@ -19,7 +18,6 @@ final class TrustPathDenormalizer implements DenormalizerInterface, NormalizerIn
     public function denormalize(mixed $data, string $type, string $format = null, array $context = []): mixed
     {
         return match (true) {
-            array_key_exists('ecdaaKeyId', $data) => new EcdaaKeyIdTrustPath($data),
             array_key_exists('x5c', $data) => CertificateTrustPath::create($data),
             $data === [], isset($data['type']) && $data['type'] === EmptyTrustPath::class => EmptyTrustPath::create(),
             default => throw new InvalidTrustPathException('Unsupported trust path type'),
@@ -48,9 +46,6 @@ final class TrustPathDenormalizer implements DenormalizerInterface, NormalizerIn
     {
         assert($data instanceof TrustPath);
         return match (true) {
-            $data instanceof EcdaaKeyIdTrustPath => [
-                'ecdaaKeyId' => $data->getEcdaaKeyId(),
-            ],
             $data instanceof CertificateTrustPath => [
                 'x5c' => $data->certificates,
             ],
