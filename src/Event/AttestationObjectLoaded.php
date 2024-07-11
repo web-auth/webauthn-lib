@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Webauthn\Event;
 
 use Webauthn\AttestationStatement\AttestationObject;
-use Webauthn\MetadataService\Event\WebauthnEvent;
 
 class AttestationObjectLoaded implements WebauthnEvent
 {

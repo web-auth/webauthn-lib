@@ -58,6 +58,9 @@ final class AuthenticationExtensionsDenormalizer implements DenormalizerInterfac
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
         assert($data instanceof AuthenticationExtensions);

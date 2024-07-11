@@ -64,6 +64,9 @@ final class PublicKeyCredentialSourceDenormalizer implements DenormalizerInterfa
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
         assert($data instanceof PublicKeyCredentialSource);

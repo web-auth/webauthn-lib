@@ -41,6 +41,9 @@ final class TrustPathDenormalizer implements DenormalizerInterface, NormalizerIn
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
         assert($data instanceof TrustPath);

@@ -128,6 +128,9 @@ final class PublicKeyCredentialOptionsDenormalizer implements DenormalizerInterf
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
         assert(
