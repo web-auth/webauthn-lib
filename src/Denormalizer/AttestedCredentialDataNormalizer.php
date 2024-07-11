@@ -14,6 +14,9 @@ final class AttestedCredentialDataNormalizer implements NormalizerInterface, Nor
 {
     use NormalizerAwareTrait;
 
+    /**
+     * @return array<string, mixed>
+     */
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
         assert($data instanceof AttestedCredentialData);
