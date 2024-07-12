@@ -174,6 +174,6 @@ final class PublicKeyCredentialOptionsDenormalizer implements DenormalizerInterf
             ];
         }
 
-        return array_filter($json, static fn ($value) => $value !== null && $value !== []);
+        return array_filter($json, static fn ($value): bool => $value !== null);
     }
 }

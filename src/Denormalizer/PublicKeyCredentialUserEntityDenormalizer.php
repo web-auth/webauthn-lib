@@ -57,7 +57,7 @@ final class PublicKeyCredentialUserEntityDenormalizer implements DenormalizerInt
             'icon' => $data->icon,
         ];
 
-        return array_filter($normalized, fn ($value) => $value !== null);
+        return array_filter($normalized, static fn ($value): bool => $value !== null);
     }
 
     public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
