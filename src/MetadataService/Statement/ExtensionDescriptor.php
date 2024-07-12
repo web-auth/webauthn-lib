@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Webauthn\MetadataService\Statement;
 
+use Symfony\Component\Serializer\Attribute\SerializedName;
 use Webauthn\Exception\MetadataStatementLoadingException;
 
 readonly class ExtensionDescriptor
@@ -12,6 +13,7 @@ readonly class ExtensionDescriptor
         public string $id,
         public ?int $tag,
         public ?string $data,
+        #[SerializedName('fail_if_unknown')]
         public bool $failIfUnknown
     ) {
         if ($tag !== null) {
