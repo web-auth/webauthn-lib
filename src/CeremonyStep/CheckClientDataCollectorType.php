@@ -12,9 +12,9 @@ use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\PublicKeyCredentialSource;
 
-final class CheckClientDataCollectorType implements CeremonyStep
+final readonly class CheckClientDataCollectorType implements CeremonyStep
 {
-    private readonly ClientDataCollectorManager $clientDataCollectorManager;
+    private ClientDataCollectorManager $clientDataCollectorManager;
 
     public function __construct(
         null|ClientDataCollectorManager $clientDataCollectorManager = null,
