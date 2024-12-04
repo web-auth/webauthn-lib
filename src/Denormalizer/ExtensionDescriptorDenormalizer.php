@@ -19,7 +19,7 @@ class ExtensionDescriptorDenormalizer implements DenormalizerInterface, Denormal
 
     private const ALREADY_CALLED = 'EXTENSION_DESCRIPTOR_PREPROCESS_ALREADY_CALLED';
 
-    public function denormalize(mixed $data, string $type, string $format = null, array $context = []): mixed
+    public function denormalize(mixed $data, string $type, ?string $format = null, array $context = []): mixed
     {
         if (array_key_exists('fail_if_unknown', $data)) {
             $data['failIfUnknown'] = $data['fail_if_unknown'];
@@ -31,7 +31,7 @@ class ExtensionDescriptorDenormalizer implements DenormalizerInterface, Denormal
         return $this->denormalizer->denormalize($data, $type, $format, $context);
     }
 
-    public function supportsDenormalization(mixed $data, string $type, string $format = null, array $context = []): bool
+    public function supportsDenormalization(mixed $data, string $type, ?string $format = null, array $context = []): bool
     {
         if ($context[self::ALREADY_CALLED] ?? false) {
             return false;
