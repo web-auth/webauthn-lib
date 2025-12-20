@@ -5,22 +5,23 @@ declare(strict_types=1);
 namespace Webauthn\Event;
 
 use LogicException;
-use Throwable;
-use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\CredentialRecord;
-use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\PublicKeyCredentialSource;
 use function sprintf;
 
-class AuthenticatorAssertionResponseValidationFailedEvent
+/**
+ * Event dispatched when the backup status flag (BS) changes.
+ *
+ * The BS flag indicates whether the credential is currently backed up.
+ * A change in this flag, especially from true to false, may indicate
+ * that the user should add an additional authenticator for redundancy.
+ */
+final readonly class BackupStatusChangedEvent implements WebauthnEvent
 {
     public function __construct(
-        public readonly CredentialRecord|PublicKeyCredentialSource $credentialRecord,
-        public readonly AuthenticatorAssertionResponse $authenticatorAssertionResponse,
-        public readonly PublicKeyCredentialRequestOptions $publicKeyCredentialRequestOptions,
-        public readonly string $host,
-        public readonly ?string $userHandle,
-        public readonly Throwable $throwable
+        public CredentialRecord|PublicKeyCredentialSource $credentialRecord,
+        public ?bool $previousValue,
+        public ?bool $newValue
     ) {
     }
 
@@ -29,7 +30,7 @@ class AuthenticatorAssertionResponseValidationFailedEvent
      */
     public function __get(string $name): mixed
     {
-        if ($name === 'credentialSource') {
+        if ($name === 'publicKeyCredentialSource') {
             return $this->getPublicKeyCredentialSource();
         }
 
